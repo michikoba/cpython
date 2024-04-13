@@ -53,7 +53,8 @@ static inline Py_ssize_t
 internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t hi,
                       PyObject* key)
 {
-    PyObject *litem;
+    PyObject *litem = NULL;
+    PyObject *qitem = NULL;
     Py_ssize_t mid;
     int res;
 
@@ -66,6 +67,16 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
         if (hi < 0)
             return -1;
     }
+    if (key != Py_None) {
+        PyObject *newitem = PyObject_CallOneArg(key, item);
+        if (newitem == NULL) {
+            goto error;
+        }
+        qitem = newitem;
+    }
+    else {
+        qitem = Py_XNewRef(item);
+    }
     ssizeargfunc sq_item = get_sq_item(list);
     if (sq_item == NULL) {
         return -1;
@@ -73,7 +84,7 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
     if (Py_EnterRecursiveCall("in _bisect.bisect_right")) {
         return -1;
     }
-    PyTypeObject *tp = Py_TYPE(item);
+    PyTypeObject *tp = Py_TYPE(qitem);
     richcmpfunc compare = tp->tp_richcompare;
     while (lo < hi) {
         /* The (size_t)cast ensures that the addition and subsequent division
@@ -101,7 +112,7 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
          */
         if (compare != NULL && Py_IS_TYPE(litem, tp)) {
             // A fast path for comparing objects of the same type
-            PyObject *res_obj = compare(item, litem, Py_LT);
+            PyObject *res_obj = compare(qitem, litem, Py_LT);
             if (res_obj == Py_True) {
                 Py_DECREF(res_obj);
                 Py_DECREF(litem);
@@ -120,7 +131,7 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
             if (res_obj == Py_NotImplemented) {
                 Py_DECREF(res_obj);
                 compare = NULL;
-                res = PyObject_RichCompareBool(item, litem, Py_LT);
+                res = PyObject_RichCompareBool(qitem, litem, Py_LT);
             }
             else {
                 res = PyObject_IsTrue(res_obj);
@@ -129,7 +140,7 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
         }
         else {
             // A default path for comparing arbitrary objects
-            res = PyObject_RichCompareBool(item, litem, Py_LT);
+            res = PyObject_RichCompareBool(qitem, litem, Py_LT);
         }
         if (res < 0) {
             goto error;
@@ -145,6 +156,7 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
 error:
     Py_LeaveRecursiveCall();
     Py_XDECREF(litem);
+    Py_XDECREF(qitem);
     return -1;
 }
 
@@ -237,7 +249,8 @@ static inline Py_ssize_t
 internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t hi,
                      PyObject *key)
 {
-    PyObject *litem;
+    PyObject *litem = NULL;
+    PyObject *qitem = NULL;
     Py_ssize_t mid;
     int res;
 
@@ -250,6 +263,16 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
         if (hi < 0)
             return -1;
     }
+    if (key != Py_None) {
+        PyObject *newitem = PyObject_CallOneArg(key, item);
+        if (newitem == NULL) {
+            goto error;
+        }
+        qitem = newitem;
+    }
+    else {
+        qitem = Py_XNewRef(item);
+    }
     ssizeargfunc sq_item = get_sq_item(list);
     if (sq_item == NULL) {
         return -1;
@@ -257,7 +280,7 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
     if (Py_EnterRecursiveCall("in _bisect.bisect_left")) {
         return -1;
     }
-    PyTypeObject *tp = Py_TYPE(item);
+    PyTypeObject *tp = Py_TYPE(qitem);
     richcmpfunc compare = tp->tp_richcompare;
     while (lo < hi) {
         /* The (size_t)cast ensures that the addition and subsequent division
@@ -285,7 +308,7 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
          */
         if (compare != NULL && Py_IS_TYPE(litem, tp)) {
             // A fast path for comparing objects of the same type
-            PyObject *res_obj = compare(litem, item, Py_LT);
+            PyObject *res_obj = compare(litem, qitem, Py_LT);
             if (res_obj == Py_True) {
                 Py_DECREF(res_obj);
                 Py_DECREF(litem);
@@ -304,7 +327,7 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
             if (res_obj == Py_NotImplemented) {
                 Py_DECREF(res_obj);
                 compare = NULL;
-                res = PyObject_RichCompareBool(litem, item, Py_LT);
+                res = PyObject_RichCompareBool(litem, qitem, Py_LT);
             }
             else {
                 res = PyObject_IsTrue(res_obj);
@@ -313,7 +336,7 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
         }
         else {
             // A default path for comparing arbitrary objects
-            res = PyObject_RichCompareBool(litem, item, Py_LT);
+            res = PyObject_RichCompareBool(litem, qitem, Py_LT);
         }
         if (res < 0) {
             goto error;
@@ -329,6 +352,7 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
 error:
     Py_LeaveRecursiveCall();
     Py_XDECREF(litem);
+    Py_XDECREF(qitem);
     return -1;
 }
 
